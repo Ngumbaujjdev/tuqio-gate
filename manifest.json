@@ -1,0 +1,24 @@
+{
+    "name": "Tuqio Gate",
+    "short_name": "Gate",
+    "description": "Tuqio Hub event check-in scanner for gate operators",
+    "start_url": "./",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#1e1548",
+    "theme_color": "#1e1548",
+    "icons": [
+        {
+            "src": "/icons/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": ["utilities", "productivity"]
+}
