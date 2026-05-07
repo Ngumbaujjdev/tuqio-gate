@@ -576,6 +576,10 @@ html, body {
 .empty-state { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 64px 24px; color: var(--muted); font-size: 15px; }
 .alert-error  { background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; border-radius: 10px; padding: 12px 14px; font-size: 14px; margin: 16px; }
 
+/* ─── BUTTON SPINNER ─────────────────────────────────────────────────────── */
+@keyframes spin { to { transform: rotate(360deg); } }
+.btn-spinner { animation: spin 0.8s linear infinite; flex-shrink: 0; }
+
 /* ─── TOASTS ──────────────────────────────────────────────────────────────── */
 #toast-container {
     position: fixed; top: 16px; left: 50%; transform: translateX(-50%);

@@ -466,7 +466,7 @@ const app = {
             const code  = input.value.trim();
             if (!code) return;
             input.value = '';
-            checkin.doCheckIn(code, 'manual');
+            checkin.doCheckIn(code, 'manual', document.getElementById('manual-submit'));
         });
 
         document.getElementById('manual-code').addEventListener('keydown', (e) => {
@@ -543,7 +543,7 @@ const app = {
             const prev = JSON.parse(localStorage.getItem('gate_recent_codes') || '[]');
             const next = [code, ...prev.filter(c => c !== code)].slice(0, 5);
             localStorage.setItem('gate_recent_codes', JSON.stringify(next));
-            checkin.doCheckIn(code, 'manual');
+            checkin.doCheckIn(code, 'manual', document.getElementById('manual-checkin-btn'));
         };
 
         document.getElementById('manual-checkin-btn').addEventListener('click', submit);
