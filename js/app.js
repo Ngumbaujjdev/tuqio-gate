@@ -28,6 +28,7 @@ const app = {
             case 'events':    await this._renderEvents(root);                 break;
             case 'dashboard': await this._renderDashboard(root, data.event);  break;
             case 'scanner':   this._renderScanner(root);                      break;
+            case 'manual':    this._renderManual(root);                       break;
             case 'log':       await this._renderLog(root);                    break;
         }
     },
@@ -276,7 +277,9 @@ const app = {
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
                 </button>
                 <span>${this._esc(event.name)}</span>
-                <span></span>
+                <button class="btn-icon-header" id="scanner-manual-btn" title="Manual entry">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M6 16h6"/></svg>
+                </button>
             </div>
             <div class="scanner-viewport">
                 <video id="scanner-video" playsinline muted autoplay></video>
@@ -306,6 +309,10 @@ const app = {
             app.render('dashboard', { event });
         });
 
+        document.getElementById('scanner-manual-btn').addEventListener('click', () => {
+            app.render('manual');
+        });
+
         document.getElementById('manual-submit').addEventListener('click', () => {
             const code = document.getElementById('manual-code').value.trim();
             if (!code) return;
@@ -327,6 +334,79 @@ const app = {
                 const hint = document.querySelector('.scan-hint');
                 if (hint) { hint.textContent = err.message; hint.style.color = '#fca5a5'; }
             });
+    },
+
+    // ─── MANUAL ENTRY ───────────────────────────────────────────────────────
+    _renderManual(root) {
+        const event = this.state.selectedEvent;
+        if (!event) { app.render('events'); return; }
+        checkin.currentEventId = event.id;
+
+        const recent = JSON.parse(localStorage.getItem('gate_recent_codes') || '[]');
+        const chipsHTML = recent.length
+            ? `<div class="recent-label">Recent codes</div>
+               <div class="recent-chips">${recent.map(c => `<button class="chip" data-code="${this._esc(c)}">${this._esc(c)}</button>`).join('')}</div>`
+            : '';
+
+        root.innerHTML = `
+        <div class="manual-screen">
+            <div class="scanner-header">
+                <button class="btn-icon-header" id="manual-back">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                </button>
+                <span>Manual Entry</span>
+                <span style="width:36px"></span>
+            </div>
+            <div class="manual-body">
+                <div class="manual-icon-circle">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ed1c24" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M6 16h6"/></svg>
+                </div>
+                <h2 class="manual-heading">Enter Ticket Code</h2>
+                <p class="manual-sub">Type the ticket number printed on the ticket</p>
+                <input type="text" id="manual-big-input" class="manual-big-input"
+                    placeholder="TKT-A1B2C3D4"
+                    autocomplete="off" autocorrect="off"
+                    autocapitalize="characters" spellcheck="false">
+                <button class="btn-scan-big" id="manual-checkin-btn" style="width:100%;margin-top:0">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    Check In
+                </button>
+                ${chipsHTML}
+            </div>
+            <div id="result-overlay" class="result-overlay">
+                <div class="result-icon-wrap"><span class="result-icon"></span></div>
+                <div class="result-title"></div>
+                <div class="result-sub"></div>
+            </div>
+        </div>`;
+
+        document.getElementById('manual-back').addEventListener('click', () => {
+            app.render('scanner');
+        });
+
+        const submit = () => {
+            const input = document.getElementById('manual-big-input');
+            const code  = input.value.trim().toUpperCase();
+            if (!code) return;
+            input.value = '';
+            // Save to recent codes (max 5, newest first, no duplicates)
+            const prev = JSON.parse(localStorage.getItem('gate_recent_codes') || '[]');
+            const next = [code, ...prev.filter(c => c !== code)].slice(0, 5);
+            localStorage.setItem('gate_recent_codes', JSON.stringify(next));
+            checkin.doCheckIn(code, 'manual');
+        };
+
+        document.getElementById('manual-checkin-btn').addEventListener('click', submit);
+        document.getElementById('manual-big-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') submit();
+        });
+
+        document.querySelectorAll('.chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                const input = document.getElementById('manual-big-input');
+                if (input) { input.value = chip.dataset.code; input.focus(); }
+            });
+        });
     },
 
     // ─── LOG ────────────────────────────────────────────────────────────────
