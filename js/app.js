@@ -24,7 +24,10 @@ const app = {
         const root = document.getElementById('app');
 
         switch (screen) {
-            case 'login':     root.innerHTML = this._loginHTML();             break;
+            case 'login':
+                root.innerHTML = this._loginHTML();
+                this._bindLogin();
+                break;
             case 'events':    await this._renderEvents(root);                 break;
             case 'dashboard': await this._renderDashboard(root, data.event);  break;
             case 'scanner':   this._renderScanner(root);                      break;
@@ -665,10 +668,5 @@ const app = {
 
 document.addEventListener('DOMContentLoaded', () => {
     auth.isLoggedIn() ? app.render('events') : app.render('login');
-
-    new MutationObserver(() => {
-        if (document.getElementById('login-form')) app._bindLogin();
-    }).observe(document.getElementById('app'), { childList: true, subtree: false });
-
     pwa.showIfNeeded();
 });
