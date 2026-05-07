@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tuqio-gate-v1';
+const CACHE_NAME = 'tuqio-gate-v2';
 
 const SHELL_FILES = [
     './',
