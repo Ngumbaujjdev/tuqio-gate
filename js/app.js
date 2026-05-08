@@ -678,8 +678,8 @@ const app = {
         if (!event) { app.render('events'); return; }
         checkin.currentEventId = event.id;
 
-        const BACK_SVG  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>`;
-        const SEARCH_SVG= `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
+        const BACK_SVG   = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>`;
+        const SEARCH_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
 
         root.innerHTML = `
         <div class="screen">
@@ -691,7 +691,6 @@ const app = {
                 </div>
                 <span style="width:36px;display:block;"></span>
             </div>
-
             <div class="gs-body">
                 <div class="gs-search-wrap">
                     <span class="gs-search-ic">${SEARCH_SVG}</span>
@@ -700,61 +699,72 @@ const app = {
                         autocomplete="off" autocorrect="off" spellcheck="false">
                 </div>
                 <div id="gs-results" class="gs-results">
-                    <div class="gs-empty">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        <p>Type a name or ticket number to search</p>
-                    </div>
+                    <div class="gs-loading"><div class="spinner"></div></div>
                 </div>
             </div>
         </div>`;
 
         document.getElementById('gs-back').addEventListener('click', () => app.render('dashboard', { event }));
 
-        let _debounce = null;
+        // State for current search
+        let _currentQ    = '';
+        let _currentPage = 1;
+        let _debounce    = null;
+
+        const reload = (q, page) => {
+            _currentQ    = q;
+            _currentPage = page;
+            document.getElementById('gs-results').innerHTML = `<div class="gs-loading"><div class="spinner"></div></div>`;
+            this._doGuestSearch(event, q, page, reload);
+        };
+
         document.getElementById('gs-input').addEventListener('input', (e) => {
             clearTimeout(_debounce);
-            const q = e.target.value.trim();
-            if (q.length < 2) {
-                document.getElementById('gs-results').innerHTML = `
-                    <div class="gs-empty">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        <p>Type at least 2 characters to search</p>
-                    </div>`;
-                return;
-            }
-            document.getElementById('gs-results').innerHTML = `<div class="gs-loading"><div class="spinner"></div></div>`;
-            _debounce = setTimeout(() => this._doGuestSearch(event, q), 300);
+            _debounce = setTimeout(() => reload(e.target.value.trim(), 1), 300);
         });
 
-        document.getElementById('gs-input').focus();
+        // Load first page immediately
+        reload('', 1);
     },
 
-    async _doGuestSearch(event, q) {
+    async _doGuestSearch(event, q, page, reload) {
         const resultsEl = document.getElementById('gs-results');
         if (!resultsEl) return;
+
+        const CHKIN_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+        const ARROW_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
+        const avatarColors = ['', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7'];
+
         try {
-            const data    = await api.get(`/events/${event.id}/guests/search?q=${encodeURIComponent(q)}`);
-            const guests  = data.data || [];
-            const avatarColors = ['', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7'];
+            const params = `q=${encodeURIComponent(q)}&page=${page}`;
+            const data   = await api.get(`/events/${event.id}/guests/search?${params}`);
+            const guests     = data.data        || [];
+            const total      = data.total       ?? 0;
+            const lastPage   = data.last_page   ?? 1;
+            const currentPage= data.current_page ?? page;
 
             if (!guests.length) {
                 resultsEl.innerHTML = `
                     <div class="gs-empty">
                         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        <p>No guests found for "<strong>${this._esc(q)}</strong>"</p>
+                        <p>${q ? `No guests found for "<strong>${this._esc(q)}</strong>"` : 'No guests for this event yet.'}</p>
                     </div>`;
                 return;
             }
 
-            const CHKIN_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-            const ARROW_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
+            const perPage = data.per_page ?? 10;
+            const from    = (currentPage - 1) * perPage + 1;
+            const to      = Math.min(currentPage * perPage, total);
 
             resultsEl.innerHTML = `
-            <div class="gs-count">${guests.length} guest${guests.length !== 1 ? 's' : ''} found</div>
+            <div class="gs-count">
+                Showing ${from}–${to} of ${total} guest${total !== 1 ? 's' : ''}
+                ${q ? `· "<strong>${this._esc(q)}</strong>"` : ''}
+            </div>
             ${guests.map((g, i) => {
-                const initials   = (g.holder_name || '??').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
-                const isChecked  = g.checked_in;
-                const typeClass  = (g.ticket_type || '').toLowerCase().includes('vip') ? 'vip' : '';
+                const initials  = (g.holder_name || '??').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
+                const isChecked = g.checked_in;
+                const typeClass = (g.ticket_type || '').toLowerCase().includes('vip') ? 'vip' : '';
                 return `
                 <div class="gs-card ${isChecked ? 'gs-card-done' : ''}">
                     <div class="gs-card-left">
@@ -773,19 +783,27 @@ const app = {
                         : `<button class="gs-checkin-btn" data-ticket="${this._esc(g.ticket_number)}">${ARROW_SVG} Check In</button>`
                     }
                 </div>`;
-            }).join('')}`;
+            }).join('')}
+            ${lastPage > 1 ? `
+            <div class="gs-pagination">
+                <button class="gs-page-btn" id="gs-prev" ${currentPage <= 1 ? 'disabled' : ''}>← Prev</button>
+                <span class="gs-page-info">Page ${currentPage} / ${lastPage}</span>
+                <button class="gs-page-btn" id="gs-next" ${currentPage >= lastPage ? 'disabled' : ''}>Next →</button>
+            </div>` : ''}`;
 
             resultsEl.querySelectorAll('.gs-checkin-btn').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     const code = btn.dataset.ticket;
                     await checkin.doCheckIn(code, 'manual', btn);
-                    // Re-run search to refresh checked-in state
-                    setTimeout(() => this._doGuestSearch(event, q), 800);
+                    setTimeout(() => reload(q, page), 800);
                 });
             });
 
+            document.getElementById('gs-prev')?.addEventListener('click', () => reload(q, currentPage - 1));
+            document.getElementById('gs-next')?.addEventListener('click', () => reload(q, currentPage + 1));
+
         } catch (err) {
-            if (resultsEl) resultsEl.innerHTML = `<div class="gs-empty"><p style="color:#f87171;">${err.message || 'Search failed.'}</p></div>`;
+            if (resultsEl) resultsEl.innerHTML = `<div class="gs-empty"><p style="color:#f87171;">${err.message || 'Failed to load guests.'}</p></div>`;
         }
     },
 
