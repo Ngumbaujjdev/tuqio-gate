@@ -1,5 +1,8 @@
 // PWA install prompt
 let _installPrompt = null;
+const _isStandalone = window.navigator.standalone === true
+    || window.matchMedia('(display-mode: standalone)').matches;
+
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     _installPrompt = e;
@@ -28,11 +31,12 @@ const app = {
                 root.innerHTML = this._loginHTML();
                 this._bindLogin();
                 break;
-            case 'events':    await this._renderEvents(root);                 break;
-            case 'dashboard': await this._renderDashboard(root, data.event);  break;
-            case 'scanner':   this._renderScanner(root);                      break;
-            case 'manual':    this._renderManual(root);                       break;
-            case 'log':       await this._renderLog(root);                    break;
+            case 'events':        await this._renderEvents(root);                    break;
+            case 'dashboard':     await this._renderDashboard(root, data.event);     break;
+            case 'scanner':       this._renderScanner(root);                         break;
+            case 'manual':        this._renderManual(root);                          break;
+            case 'log':           await this._renderLog(root);                       break;
+            case 'guest-search':  this._renderGuestSearch(root);                     break;
         }
     },
 
@@ -84,12 +88,13 @@ const app = {
                 </form>
             </div>
 
+            ${_isStandalone ? '' : `
             <div class="install-wrap">
-                <button class="install-pill" id="pwa-install-btn">
+                <button class="install-pill" id="pwa-install-btn" style="display:none;">
                     <span class="install-pill-ic">${DL_SVG}</span>
                     <span>Install as app on your device</span>
                 </button>
-            </div>
+            </div>`}
 
             <div class="login-footer">
                 <div class="login-footer-l">
@@ -220,6 +225,22 @@ const app = {
                 });
             });
 
+            // Real-time search filter
+            document.getElementById('events-search-input')?.addEventListener('input', (e) => {
+                const q = e.target.value.trim().toLowerCase();
+                const cards = document.querySelectorAll('.event-card');
+                let visible = 0;
+                cards.forEach(card => {
+                    const name  = card.querySelector('.event-card-name')?.textContent.toLowerCase()  || '';
+                    const venue = card.querySelector('.event-card-venue')?.textContent.toLowerCase() || '';
+                    const show  = !q || name.includes(q) || venue.includes(q);
+                    card.style.display = show ? '' : 'none';
+                    if (show) visible++;
+                });
+                const lbl = document.querySelector('.events-section-l');
+                if (lbl) lbl.textContent = q ? `RESULTS · ${visible}` : `UPCOMING · ${events.length}`;
+            });
+
         } catch (err) {
             document.getElementById('events-content').innerHTML =
                 `<div style="padding:16px;"><div class="alert-error">${err.message || 'Failed to load events.'}</div></div>`;
@@ -306,6 +327,14 @@ const app = {
                     <span class="btn-scan-arrow">${ARROW_SVG}</span>
                 </button>
 
+                <button class="btn-guest-search" id="guest-search-btn">
+                    <span class="btn-recent-l">
+                        <span class="btn-recent-ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+                        Search Guests
+                    </span>
+                    <span class="btn-recent-r">Manual check-in ${CHEV_SVG}</span>
+                </button>
+
                 <button class="btn-recent" id="log-btn">
                     <span class="btn-recent-l">
                         <span class="btn-recent-ic">${LOG_SVG}</span>
@@ -321,6 +350,7 @@ const app = {
 
         document.getElementById('back-btn').addEventListener('click', () => app.render('events'));
         document.getElementById('scan-btn').addEventListener('click', () => app.render('scanner'));
+        document.getElementById('guest-search-btn').addEventListener('click', () => app.render('guest-search'));
         document.getElementById('log-btn').addEventListener('click', () => app.render('log'));
 
         this.state.statsInterval = setInterval(async () => {
@@ -640,6 +670,123 @@ const app = {
 
         await loadLog();
         this.state.logInterval = setInterval(loadLog, 10000);
+    },
+
+    // ─── GUEST SEARCH ───────────────────────────────────────────────────────
+    _renderGuestSearch(root) {
+        const event = this.state.selectedEvent;
+        if (!event) { app.render('events'); return; }
+        checkin.currentEventId = event.id;
+
+        const BACK_SVG  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>`;
+        const SEARCH_SVG= `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
+
+        root.innerHTML = `
+        <div class="screen">
+            <div class="app-header">
+                <button class="btn-icon-header" id="gs-back">${BACK_SVG}</button>
+                <div style="display:flex;flex-direction:column;align-items:center;flex:1;overflow:hidden;">
+                    <div class="header-sub">Manual Check-In</div>
+                    <div class="header-title" style="font-size:13px;margin-top:1px;">Search Guests</div>
+                </div>
+                <span style="width:36px;display:block;"></span>
+            </div>
+
+            <div class="gs-body">
+                <div class="gs-search-wrap">
+                    <span class="gs-search-ic">${SEARCH_SVG}</span>
+                    <input type="text" id="gs-input" class="gs-input"
+                        placeholder="Name, ticket number, or email…"
+                        autocomplete="off" autocorrect="off" spellcheck="false">
+                </div>
+                <div id="gs-results" class="gs-results">
+                    <div class="gs-empty">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <p>Type a name or ticket number to search</p>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
+        document.getElementById('gs-back').addEventListener('click', () => app.render('dashboard', { event }));
+
+        let _debounce = null;
+        document.getElementById('gs-input').addEventListener('input', (e) => {
+            clearTimeout(_debounce);
+            const q = e.target.value.trim();
+            if (q.length < 2) {
+                document.getElementById('gs-results').innerHTML = `
+                    <div class="gs-empty">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <p>Type at least 2 characters to search</p>
+                    </div>`;
+                return;
+            }
+            document.getElementById('gs-results').innerHTML = `<div class="gs-loading"><div class="spinner"></div></div>`;
+            _debounce = setTimeout(() => this._doGuestSearch(event, q), 300);
+        });
+
+        document.getElementById('gs-input').focus();
+    },
+
+    async _doGuestSearch(event, q) {
+        const resultsEl = document.getElementById('gs-results');
+        if (!resultsEl) return;
+        try {
+            const data    = await api.get(`/events/${event.id}/guests/search?q=${encodeURIComponent(q)}`);
+            const guests  = data.data || [];
+            const avatarColors = ['', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7'];
+
+            if (!guests.length) {
+                resultsEl.innerHTML = `
+                    <div class="gs-empty">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <p>No guests found for "<strong>${this._esc(q)}</strong>"</p>
+                    </div>`;
+                return;
+            }
+
+            const CHKIN_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+            const ARROW_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
+
+            resultsEl.innerHTML = `
+            <div class="gs-count">${guests.length} guest${guests.length !== 1 ? 's' : ''} found</div>
+            ${guests.map((g, i) => {
+                const initials   = (g.holder_name || '??').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
+                const isChecked  = g.checked_in;
+                const typeClass  = (g.ticket_type || '').toLowerCase().includes('vip') ? 'vip' : '';
+                return `
+                <div class="gs-card ${isChecked ? 'gs-card-done' : ''}">
+                    <div class="gs-card-left">
+                        <div class="log-avatar ${avatarColors[i % 7]}">${this._esc(initials)}</div>
+                        <div class="gs-card-info">
+                            <div class="gs-card-name">${this._esc(g.holder_name || '—')}</div>
+                            <div class="gs-card-meta">
+                                <span class="log-ticket">${this._esc(g.ticket_number)}</span>
+                                ${g.ticket_type ? `<span class="log-type-tag ${typeClass}"><span class="log-type-tag-dot"></span>${this._esc(g.ticket_type)}</span>` : ''}
+                            </div>
+                            ${isChecked ? `<div class="gs-already-in">${CHKIN_SVG} Checked in · ${this._shortTime(g.checked_in_at)}</div>` : ''}
+                        </div>
+                    </div>
+                    ${isChecked
+                        ? `<span class="gs-badge-done">${CHKIN_SVG}</span>`
+                        : `<button class="gs-checkin-btn" data-ticket="${this._esc(g.ticket_number)}">${ARROW_SVG} Check In</button>`
+                    }
+                </div>`;
+            }).join('')}`;
+
+            resultsEl.querySelectorAll('.gs-checkin-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const code = btn.dataset.ticket;
+                    await checkin.doCheckIn(code, 'manual', btn);
+                    // Re-run search to refresh checked-in state
+                    setTimeout(() => this._doGuestSearch(event, q), 800);
+                });
+            });
+
+        } catch (err) {
+            if (resultsEl) resultsEl.innerHTML = `<div class="gs-empty"><p style="color:#f87171;">${err.message || 'Search failed.'}</p></div>`;
+        }
     },
 
     // ─── UTILS ──────────────────────────────────────────────────────────────
