@@ -31,6 +31,11 @@ const api = {
         }
 
         const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+            throw { message: data.message || `Server error (${res.status})`, status: res.status };
+        }
+
         return data;
     },
 
