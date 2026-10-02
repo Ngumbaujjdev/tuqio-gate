@@ -23,7 +23,12 @@ define('TUQIO_HUB_FALLBACK_URL', $isLocal
 
 define('GATE_API_BASE', TUQIO_HUB_URL . '/api/gate');
 
-define('APP_VERSION', '1.0.0');
+// Event posters are stored on the backend's public disk (events/{id}/banner_….webp)
+define('STORAGE_BASE', TUQIO_HUB_URL . '/storage');
+
+// Bump on every release — it versions the JS/CSS URLs and the service-worker
+// cache, which is what makes installed phones pick up the new code.
+define('APP_VERSION', '1.2.0');
 
 // ─── Authenticated Gate API helper (server-side calls if ever needed) ──────
 function gate_api(string $path, string $token, string $method = 'GET', array $data = []): array {

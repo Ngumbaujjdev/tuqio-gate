@@ -30,7 +30,7 @@ const pwa = (() => {
             <div class="pwa-steps">
                 <div class="pwa-step">
                     <div class="pwa-step-num">1</div>
-                    <div class="pwa-step-text">Tap the <strong>Share</strong> button at the bottom of Safari <span style="font-size:18px">⎋</span></div>
+                    <div class="pwa-step-text">Tap the <strong>Share</strong> button at the bottom of Safari <svg class="pwa-share-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 10H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-2"/><polyline points="8 6 12 2 16 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg></div>
                 </div>
                 <div class="pwa-step">
                     <div class="pwa-step-num">2</div>

@@ -10,6 +10,10 @@ window.addEventListener('beforeinstallprompt', (e) => {
     if (btn) btn.style.display = 'flex';
 });
 
+// Password show/hide icons — shared by the login markup and its toggle handler
+const EYE_SVG     = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const EYE_OFF_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a19.4 19.4 0 0 1 4.06-5.94M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 8 11 8a19.5 19.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+
 const app = {
     state: {
         screen:        'login',
@@ -72,7 +76,8 @@ const app = {
                     <div class="field">
                         <label class="field-label">Password</label>
                         ${PASS_SVG}
-                        <input type="password" id="login-password" class="field-input" autocomplete="current-password" placeholder="••••••••••" required>
+                        <input type="password" id="login-password" class="field-input field-input-pwd" autocomplete="current-password" placeholder="••••••••••" required>
+                        <button type="button" class="field-toggle" id="login-password-toggle" aria-label="Show password">${EYE_SVG}</button>
                     </div>
                     <div class="field-row">
                         <div class="field-remember">
@@ -109,6 +114,15 @@ const app = {
 
     _bindLogin() {
         const ARROW_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
+
+        document.getElementById('login-password-toggle')?.addEventListener('click', () => {
+            const input   = document.getElementById('login-password');
+            const btn     = document.getElementById('login-password-toggle');
+            const showing = input.type === 'text';
+            input.type    = showing ? 'password' : 'text';
+            btn.innerHTML = showing ? EYE_SVG : EYE_OFF_SVG;
+            btn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+        });
 
         document.getElementById('login-form')?.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -158,7 +172,7 @@ const app = {
                     </div>
                 </div>
                 <div class="events-header-welcome">
-                    <div class="events-welcome-sub">Welcome back</div>
+                    <div class="events-welcome-sub">Welcome back <span class="events-version">v${APP_VERSION}</span></div>
                     <div class="events-welcome-name" id="events-welcome-name">
                         Hi, ${this._esc(firstName)} <span class="dot">·</span> <span class="events-welcome-count" id="events-count">Loading…</span>
                     </div>
@@ -262,6 +276,7 @@ const app = {
         return `
         <div class="event-card" data-id="${ev.id}">
             <div class="event-card-img ev-bg-${index % 4}">
+                ${this._posterImg(ev, 'event-card-poster')}
                 <span class="event-card-pill ${pillClass}">${pillText}</span>
                 <div class="event-card-info">
                     <div class="event-card-name">${this._esc(ev.name)}</div>
@@ -278,6 +293,7 @@ const app = {
     // ─── DASHBOARD ──────────────────────────────────────────────────────────
     async _renderDashboard(root, event) {
         if (!event) { app.render('events'); return; }
+        const poster = this._posterUrl(event);
 
         const BACK_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>`;
         const DOTS_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>`;
@@ -299,8 +315,10 @@ const app = {
                 <button class="btn-icon-header">${DOTS_SVG}</button>
             </div>
 
-            <div class="event-banner">
+            <div class="event-banner ${poster ? 'has-poster' : ''}">
+                ${poster ? `<div class="event-banner-blur" style="background-image:url('${this._esc(poster)}')"></div>` : ''}
                 <div class="event-banner-overlay"></div>
+                ${this._posterImg(event, 'event-banner-poster')}
                 <div class="live-tag"><span class="live-tag-dot"></span>Live · Doors Open</div>
                 <div class="event-banner-content">
                     <div class="event-banner-eyebrow">Tonight · Black Tie</div>
@@ -808,6 +826,20 @@ const app = {
     },
 
     // ─── UTILS ──────────────────────────────────────────────────────────────
+    // Absolute URL of the event poster, or null — the API sends a storage path
+    _posterUrl(ev) {
+        const path = ev?.banner_image;
+        if (!path) return null;
+        if (/^https?:\/\//.test(path)) return path;
+        return `${STORAGE_BASE}/${String(path).replace(/^\/+/, '')}`;
+    },
+
+    // Poster <img>, removed on load error so the gradient behind it shows instead
+    _posterImg(ev, cls) {
+        const url = this._posterUrl(ev);
+        return url ? `<img class="${cls}" src="${this._esc(url)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : '';
+    },
+
     _esc(str) {
         return String(str)
             .replace(/&/g,'&amp;').replace(/</g,'&lt;')
